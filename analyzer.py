@@ -51,6 +51,8 @@ KNOWN_BRANDS = {
     "sigma": "Sigma",
     "star": "Star",
     "fujikura": "Fujikura",
+    "thompson": "Thompson",
+    "hs boyd": "HS Boyd",
     "day": "Day",
     "phoenix": "Phoenix",
     "vulcan": "Vulcan",
@@ -130,6 +132,10 @@ def extract_product_name(row: pd.Series) -> str:
     if not item_name:
         return ""
 
+    brand = str(row.get("Brand", ""))
+    if brand in {"Thompson", "HS Boyd"}:
+        return extract_thompson_hs_boyd_product_name(item_name, brand)
+
     text = item_name
     text = re.sub(r"^[A-Za-z]{1,3}\s*[|/-]\s*", "", text)
     for machine_name in MACHINE_NAMES_TO_REMOVE:
@@ -161,6 +167,11 @@ def extract_product_name(row: pd.Series) -> str:
 
 
 def extract_size(row: pd.Series) -> str:
+    item_name = normalize_spaces(str(row["Item Name"]))
+    brand = str(row.get("Brand", ""))
+    if brand in {"Thompson", "HS Boyd"}:
+        return extract_thompson_hs_boyd_size(item_name)
+
     combined = " | ".join(
         [str(row["Item Name"]), str(row["Product Format"]), str(row["Description"])]
     )
@@ -236,7 +247,7 @@ def extract_category(row: pd.Series) -> str:
             return format_category("05")
         return format_category("03")
     if is_blanket_product(row):
-        if any(keyword in haystack for keyword in ("metalback", "metal backed", "alub", "stlb")):
+        if "mbb" in haystack:
             return format_category("02")
         return format_category("01")
     if is_sponge_product(row):
@@ -324,7 +335,7 @@ def is_blanket_product(row: pd.Series) -> bool:
         return False
     if any(
         keyword in haystack
-        for keyword in ("blanket", "uv black", "webline", "topaz", "privilege", "advantage plus", "magnum", "print master", "web master")
+        for keyword in ("blanket", "uv black", "webline", "topaz", "privilege", "advantage plus", "magnum", "print master", "web master", "mbb")
     ):
         return True
     if re.search(r"\b\d+(?:\.\d+)?\s?mm\b", size, flags=re.IGNORECASE):
@@ -347,6 +358,8 @@ def is_rule_product(row: pd.Series) -> bool:
     brand = str(row.get("Brand", ""))
     size = normalize_spaces(str(row.get("Size", "")))
     if "rule" in haystack:
+        return True
+    if brand in {"Thompson", "HS Boyd"} and any(keyword in haystack for keyword in ("perforation", "perf", "tpi", "paper", "card", "side", "centre", "center")):
         return True
     if brand in {"Sigma", "Star", "Fujikura"} and bool(re.search(r"\b\d+(?:\.\d+)?\s*x\s*\d+(?:\.\d+)?\s*pt\b", size, flags=re.IGNORECASE)):
         return True
@@ -430,6 +443,34 @@ def extract_dimension_units(size: str) -> List[str]:
 
 def has_bar_cut_code(haystack: str) -> bool:
     return any(code in haystack for code in ("alub", "stlb"))
+
+
+def extract_thompson_hs_boyd_product_name(item_name: str, brand: str) -> str:
+    number_match = re.search(r"\b([A-Z]\d{2,}[A-Z0-9-]*)\b", item_name, flags=re.IGNORECASE)
+    if number_match:
+        return f"{brand} {number_match.group(1).upper()}"
+    return brand
+
+
+def extract_thompson_hs_boyd_size(item_name: str) -> str:
+    parts: List[str] = []
+
+    tpi_match = re.search(r"\b\d+(?:\.\d+)?\s*TPI\b", item_name, flags=re.IGNORECASE)
+    if tpi_match:
+        parts.append(normalize_spaces(tpi_match.group(0)).upper())
+
+    side_match = re.search(r"\b(side|centre|center)\b", item_name, flags=re.IGNORECASE)
+    if side_match:
+        side_value = side_match.group(1).lower()
+        if side_value == "center":
+            side_value = "centre"
+        parts.append(side_value.title())
+
+    stock_match = re.search(r"\b(paper|card)\b", item_name, flags=re.IGNORECASE)
+    if stock_match:
+        parts.append(stock_match.group(1).title())
+
+    return " - ".join(parts)
 
 
 def build_haystack(row: pd.Series) -> str:

@@ -24,6 +24,7 @@ def index():
         page_size=None,
         total_rows=None,
         total_pages=None,
+        page_numbers=None,
     )
 
 
@@ -87,6 +88,7 @@ def preview(token):
     total_rows = len(rows)
     total_pages = max(1, (total_rows + page_size - 1) // page_size)
     page = max(1, min(page, total_pages))
+    page_numbers = list(range(1, total_pages + 1))
 
     start = (page - 1) * page_size
     end = start + page_size
@@ -101,6 +103,7 @@ def preview(token):
         page_size=page_size,
         total_rows=total_rows,
         total_pages=total_pages,
+        page_numbers=page_numbers,
     )
 
 

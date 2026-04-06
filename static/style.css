@@ -168,9 +168,14 @@ button:hover {
 
 .preview-nav {
     display: flex;
-    justify-content: flex-end;
+    flex-wrap: wrap;
+    justify-content: flex-start;
     gap: 12px;
     margin-bottom: 14px;
+}
+
+.preview-nav-secondary {
+    justify-content: flex-end;
 }
 
 .nav-link {
@@ -193,6 +198,12 @@ button:hover {
 .nav-link.is-disabled {
     opacity: 0.45;
     pointer-events: none;
+}
+
+.nav-link.is-active {
+    background: linear-gradient(135deg, var(--accent) 0%, #d97706 100%);
+    color: white;
+    border-color: transparent;
 }
 
 .table-wrap {

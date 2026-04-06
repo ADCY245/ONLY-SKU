@@ -78,8 +78,14 @@
                     {% endif %}
                 </div>
 
-                {% if download_token and page and total_pages and total_pages > 1 %}
+                {% if download_token and page_numbers and total_pages and total_pages > 1 %}
                     <div class="preview-nav">
+                        {% for page_number in page_numbers %}
+                            <a class="nav-link {% if page_number == page %}is-active{% endif %}"
+                               href="{{ url_for('preview', token=download_token, page=page_number) }}">{{ page_number }}</a>
+                        {% endfor %}
+                    </div>
+                    <div class="preview-nav preview-nav-secondary">
                         <a class="nav-link {% if page <= 1 %}is-disabled{% endif %}"
                            href="{% if page > 1 %}{{ url_for('preview', token=download_token, page=page-1) }}{% else %}#{% endif %}">Previous</a>
                         <a class="nav-link {% if page >= total_pages %}is-disabled{% endif %}"
