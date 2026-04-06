@@ -31,7 +31,7 @@
             <form class="upload-card" action="{{ url_for('analyze') }}" method="post" enctype="multipart/form-data">
                 <label for="file" class="label">Choose Excel File</label>
                 <input id="file" name="file" type="file" accept=".xlsx,.xls" required>
-                <button type="submit">Analyze and Download</button>
+                <button type="submit">Analyze File</button>
             </form>
         </section>
 
@@ -58,6 +58,40 @@
                 </ul>
             </div>
         </section>
+
+        {% if preview_rows %}
+            <section class="preview panel">
+                <div class="preview-head">
+                    <div>
+                        <h2>Preview</h2>
+                        <p>Showing the first {{ preview_rows|length }} analyzed rows on the page.</p>
+                    </div>
+                    {% if download_token %}
+                        <a class="download-link" href="{{ url_for('download', token=download_token) }}">Download Excel</a>
+                    {% endif %}
+                </div>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                {% for column in preview_columns %}
+                                    <th>{{ column }}</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in preview_rows %}
+                                <tr>
+                                    {% for column in preview_columns %}
+                                        <td>{{ row[column] }}</td>
+                                    {% endfor %}
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        {% endif %}
     </main>
 </body>
 </html>

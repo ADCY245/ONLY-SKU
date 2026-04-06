@@ -1,4 +1,5 @@
 import os
+import uuid
 from io import BytesIO
 
 from flask import Flask, flash, redirect, render_template, request, send_file, url_for
@@ -9,11 +10,12 @@ from analyzer import analyze_excel
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "sku-analyzer-secret"
+RESULT_CACHE = {}
 
 
 @app.route("/", methods=["GET"])
 def index():
-    return render_template("index.html")
+    return render_template("index.html", preview_rows=None, preview_columns=None, download_token=None)
 
 
 @app.route("/analyze", methods=["POST"])
@@ -45,10 +47,32 @@ def analyze():
     original_name = uploaded_file.filename.rsplit(".", 1)[0]
     download_name = f"{original_name}_analyzed.xlsx"
 
+    download_token = str(uuid.uuid4())
+    RESULT_CACHE[download_token] = {
+        "filename": download_name,
+        "content": output_stream.getvalue(),
+    }
+
+    preview_df = output_df.head(100).fillna("")
+    return render_template(
+        "index.html",
+        preview_rows=preview_df.to_dict(orient="records"),
+        preview_columns=list(preview_df.columns),
+        download_token=download_token,
+    )
+
+
+@app.route("/download/<token>", methods=["GET"])
+def download(token):
+    result = RESULT_CACHE.get(token)
+    if not result:
+        flash("That preview is no longer available. Please analyze the file again.")
+        return redirect(url_for("index"))
+
     return send_file(
-        output_stream,
+        BytesIO(result["content"]),
         as_attachment=True,
-        download_name=download_name,
+        download_name=result["filename"],
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
 
