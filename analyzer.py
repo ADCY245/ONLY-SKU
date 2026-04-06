@@ -48,6 +48,9 @@ KNOWN_BRANDS = {
     "mpack": "MPack",
     "polipack": "Polipack",
     "b4p": "B4P",
+    "sigma": "Sigma",
+    "star": "Star",
+    "fujikura": "Fujikura",
     "day": "Day",
     "phoenix": "Phoenix",
     "vulcan": "Vulcan",
@@ -58,6 +61,7 @@ KNOWN_BRANDS = {
 
 NON_BRAND_PREFIXES = {"pl", "d", "exsq"}
 CODES_TO_REMOVE = {"alub", "stlb", "exsq"}
+MACHINE_NAMES_TO_REMOVE = ("kba rapida", "kba rabida")
 
 CATEGORY_RULES: Iterable[Tuple[str, Iterable[str]]] = [
     ("23", ("auto wash cloth", "wash cloth")),
@@ -128,18 +132,31 @@ def extract_product_name(row: pd.Series) -> str:
 
     text = item_name
     text = re.sub(r"^[A-Za-z]{1,3}\s*[|/-]\s*", "", text)
+    for machine_name in MACHINE_NAMES_TO_REMOVE:
+        text = re.sub(rf"\b{re.escape(machine_name)}\b", " ", text, flags=re.IGNORECASE)
     text = re.sub(
         r"\b\d+(?:\.\d+)?\s?(?:mm|cm|m|mtr|meter|meters|inch|in)\s*x\s*\d+(?:\.\d+)?\s?(?:mm|cm|m|mtr|meter|meters|inch|in)(?:\s*x\s*\d+(?:\.\d+)?\s?(?:mm|cm|m|mtr|meter|meters|inch|in))?\b",
         " ",
         text,
         flags=re.IGNORECASE,
     )
+    text = re.sub(r"\b\d+(?:\.\d+)?\s*x\s*\d+(?:\.\d+)?\s*pt\b", " ", text, flags=re.IGNORECASE)
     text = re.sub(r"\b\d+(?:\.\d+)?\s?(?:ml|l|ltr|litre|liter|mm|cm|m|mtr|meter|meters|kg|g|gsm)\b", " ", text, flags=re.IGNORECASE)
     text = re.sub(r"\b\d{4,}\b", " ", text)
     for code in CODES_TO_REMOVE:
         text = re.sub(rf"\b{re.escape(code)}\b", " ", text, flags=re.IGNORECASE)
+    text = re.sub(r"\b(?:cfr|cf)\b", " ", text, flags=re.IGNORECASE)
+    text = re.sub(r"\bglossy\b", " ", text, flags=re.IGNORECASE)
+    text = re.sub(r"[()]", " ", text)
+    text = re.sub(r"\bself\s+adhesive\b", "Self adhesive", text, flags=re.IGNORECASE)
+    text = re.sub(r"\b\d+(?:\.\d+)?\s?(?:mic|micron)\b", " ", text, flags=re.IGNORECASE)
     text = re.sub(r"\s*[|/-]\s*", " ", text)
     text = re.sub(r"\s+", " ", text).strip(" -|/")
+
+    mic_match = re.search(r"\b\d+(?:\.\d+)?\s?(?:mic|micron)\b", item_name, flags=re.IGNORECASE)
+    if mic_match and "self adhesive" in text.lower():
+        text = f"{text} - {normalize_spaces(mic_match.group(0))}"
+
     return normalize_spaces(text)
 
 
@@ -149,6 +166,7 @@ def extract_size(row: pd.Series) -> str:
     )
     patterns = [
         r"\b\d+(?:\.\d+)?\s?(?:mm|cm|m|mtr|meter|meters|inch|in)\s?x\s?\d+(?:\.\d+)?\s?(?:mm|cm|m|mtr|meter|meters|inch|in)(?:\s?x\s?\d+(?:\.\d+)?\s?(?:mm|cm|m|mtr|meter|meters|inch|in))?\b",
+        r"\b\d+(?:\.\d+)?\s*x\s*\d+(?:\.\d+)?\s*pt\b",
         r"\b\d+(?:\.\d+)?\s?(?:ml|l|ltr|litre|liter)\b",
         r"\b\d+(?:\.\d+)?\s?(?:mm|cm|m|mtr|meter|meters|mic|micron)\b",
         r"\b\d+(?:\.\d+)?\s?(?:kg|g|gsm)\b",
@@ -173,6 +191,10 @@ def normalize_product_format(row: pd.Series) -> str:
         "Underpacking - Roll Format",
         "Barring Pieces",
         "Sponge Pieces",
+        "Creasing Matrix",
+        "Cutting Rule",
+        "Creasing Rule",
+        "Litho Perforation Rule",
     }:
         return classified_type
     return existing_format
@@ -199,6 +221,14 @@ def extract_category(row: pd.Series) -> str:
         return format_category("22")
     if is_barring_piece_product(row):
         return format_category("04")
+    if is_matrix_product(row):
+        return format_category("07")
+    if is_rule_product(row):
+        if is_perforation_rule_product(row):
+            return format_category("10")
+        if is_creasing_rule_product(row):
+            return format_category("09")
+        return format_category("08")
     if is_underpacking_product(row):
         if "film" in haystack:
             return format_category("06")
@@ -238,6 +268,14 @@ def classify_type_label(row: pd.Series) -> str:
         return "Barring Pieces"
     if is_sponge_product(row):
         return "Sponge Pieces"
+    if is_matrix_product(row):
+        return "Creasing Matrix"
+    if is_rule_product(row):
+        if is_perforation_rule_product(row):
+            return "Litho Perforation Rule"
+        if is_creasing_rule_product(row):
+            return "Creasing Rule"
+        return "Cutting Rule"
     if is_underpacking_product(row):
         if is_cut_dimensions(size):
             return "Underpacking - Cut Format"
@@ -280,6 +318,10 @@ def is_blanket_product(row: pd.Series) -> bool:
         return False
     if is_barring_piece_product(row):
         return False
+    if is_matrix_product(row):
+        return False
+    if is_rule_product(row):
+        return False
     if any(
         keyword in haystack
         for keyword in ("blanket", "uv black", "webline", "topaz", "privilege", "advantage plus", "magnum", "print master", "web master")
@@ -293,6 +335,33 @@ def is_blanket_product(row: pd.Series) -> bool:
 def is_underpacking_product(row: pd.Series) -> bool:
     haystack = build_haystack(row)
     return any(keyword in haystack for keyword in ("mz", "underpacking", "underlay"))
+
+
+def is_matrix_product(row: pd.Series) -> bool:
+    haystack = build_haystack(row)
+    return "matrix" in haystack
+
+
+def is_rule_product(row: pd.Series) -> bool:
+    haystack = build_haystack(row)
+    brand = str(row.get("Brand", ""))
+    size = normalize_spaces(str(row.get("Size", "")))
+    if "rule" in haystack:
+        return True
+    if brand in {"Sigma", "Star", "Fujikura"} and bool(re.search(r"\b\d+(?:\.\d+)?\s*x\s*\d+(?:\.\d+)?\s*pt\b", size, flags=re.IGNORECASE)):
+        return True
+    return False
+
+
+def is_creasing_rule_product(row: pd.Series) -> bool:
+    haystack = build_haystack(row)
+    product_name = normalize_spaces(str(row.get("Product Name", ""))).lower()
+    return any(keyword in haystack for keyword in ("creasing rule", "crease")) or "lcb" in product_name
+
+
+def is_perforation_rule_product(row: pd.Series) -> bool:
+    haystack = build_haystack(row)
+    return "perforation" in haystack or "perf" in haystack
 
 
 def is_barring_piece_product(row: pd.Series) -> bool:
