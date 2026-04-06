@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SKU Excel Analyzer</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <main class="page">
+        <section class="hero">
+            <p class="eyebrow">Python Excel Web App</p>
+            <h1>Analyze product Excel files and return a cleaned output sheet</h1>
+            <p class="intro">
+                Upload an Excel file with <strong>Item Name</strong>, <strong>Description</strong>,
+                and <strong>Product Format</strong>. The app will add
+                <strong>Brand</strong>, <strong>Size</strong>, <strong>Type</strong>, and
+                <strong>Category</strong>.
+            </p>
+
+            {% with messages = get_flashed_messages() %}
+                {% if messages %}
+                    <div class="alert">
+                        {% for message in messages %}
+                            <p>{{ message }}</p>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+
+            <form class="upload-card" action="{{ url_for('analyze') }}" method="post" enctype="multipart/form-data">
+                <label for="file" class="label">Choose Excel File</label>
+                <input id="file" name="file" type="file" accept=".xlsx,.xls" required>
+                <button type="submit">Analyze and Download</button>
+            </form>
+        </section>
+
+        <section class="details">
+            <div class="panel">
+                <h2>Expected Input Columns</h2>
+                <ul>
+                    <li>Item Name</li>
+                    <li>Description</li>
+                    <li>Product Format</li>
+                </ul>
+            </div>
+
+            <div class="panel">
+                <h2>Output Columns</h2>
+                <ul>
+                    <li>Item Name</li>
+                    <li>Description</li>
+                    <li>Product Format</li>
+                    <li>Brand</li>
+                    <li>Size</li>
+                    <li>Type</li>
+                    <li>Category</li>
+                </ul>
+            </div>
+        </section>
+    </main>
+</body>
+</html>
