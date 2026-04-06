@@ -43,6 +43,11 @@ KNOWN_BRANDS = {
     "image": "Image",
     "mtech": "MTech",
     "mteck": "MTeck",
+    "m3z": "Marks3.Zet",
+    "marks3.zet": "Marks3.Zet",
+    "mpack": "MPack",
+    "polipack": "Polipack",
+    "b4p": "B4P",
     "day": "Day",
     "phoenix": "Phoenix",
     "vulcan": "Vulcan",
@@ -108,18 +113,12 @@ def analyze_excel(file_obj) -> pd.DataFrame:
 def extract_brand(item_name: str) -> str:
     text = normalize_spaces(item_name).lower()
     if not text:
-        return ""
+        return "Unspecified"
 
     for brand, display_name in KNOWN_BRANDS.items():
         if re.search(rf"\b{re.escape(brand)}\b", text):
             return display_name
-
-    cleaned_tokens = [
-        token
-        for token in re.split(r"[\s|/-]+", text)
-        if token and token not in NON_BRAND_PREFIXES and not re.fullmatch(r"\d+(?:\.\d+)?", token)
-    ]
-    return cleaned_tokens[0].title() if cleaned_tokens else ""
+    return "Unspecified"
 
 
 def extract_product_name(row: pd.Series) -> str:
@@ -130,12 +129,12 @@ def extract_product_name(row: pd.Series) -> str:
     text = item_name
     text = re.sub(r"^[A-Za-z]{1,3}\s*[|/-]\s*", "", text)
     text = re.sub(
-        r"\b\d+(?:\.\d+)?\s?(?:mm|cm|m|inch|in)\s*x\s*\d+(?:\.\d+)?\s?(?:mm|cm|m|inch|in)(?:\s*x\s*\d+(?:\.\d+)?\s?(?:mm|cm|m|inch|in))?\b",
+        r"\b\d+(?:\.\d+)?\s?(?:mm|cm|m|mtr|meter|meters|inch|in)\s*x\s*\d+(?:\.\d+)?\s?(?:mm|cm|m|mtr|meter|meters|inch|in)(?:\s*x\s*\d+(?:\.\d+)?\s?(?:mm|cm|m|mtr|meter|meters|inch|in))?\b",
         " ",
         text,
         flags=re.IGNORECASE,
     )
-    text = re.sub(r"\b\d+(?:\.\d+)?\s?(?:ml|l|ltr|litre|liter|mm|cm|m|kg|g|gsm)\b", " ", text, flags=re.IGNORECASE)
+    text = re.sub(r"\b\d+(?:\.\d+)?\s?(?:ml|l|ltr|litre|liter|mm|cm|m|mtr|meter|meters|kg|g|gsm)\b", " ", text, flags=re.IGNORECASE)
     text = re.sub(r"\b\d{4,}\b", " ", text)
     for code in CODES_TO_REMOVE:
         text = re.sub(rf"\b{re.escape(code)}\b", " ", text, flags=re.IGNORECASE)
@@ -149,9 +148,9 @@ def extract_size(row: pd.Series) -> str:
         [str(row["Item Name"]), str(row["Product Format"]), str(row["Description"])]
     )
     patterns = [
-        r"\b\d+(?:\.\d+)?\s?(?:mm|cm|m|inch|in)\s?x\s?\d+(?:\.\d+)?\s?(?:mm|cm|m|inch|in)(?:\s?x\s?\d+(?:\.\d+)?\s?(?:mm|cm|m|inch|in))?\b",
+        r"\b\d+(?:\.\d+)?\s?(?:mm|cm|m|mtr|meter|meters|inch|in)\s?x\s?\d+(?:\.\d+)?\s?(?:mm|cm|m|mtr|meter|meters|inch|in)(?:\s?x\s?\d+(?:\.\d+)?\s?(?:mm|cm|m|mtr|meter|meters|inch|in))?\b",
         r"\b\d+(?:\.\d+)?\s?(?:ml|l|ltr|litre|liter)\b",
-        r"\b\d+(?:\.\d+)?\s?(?:mm|cm|m|mic|micron)\b",
+        r"\b\d+(?:\.\d+)?\s?(?:mm|cm|m|mtr|meter|meters|mic|micron)\b",
         r"\b\d+(?:\.\d+)?\s?(?:kg|g|gsm)\b",
         r"\b\d+\s?(?:tr|pcs|sheets|rolls)\b",
     ]
@@ -347,14 +346,14 @@ def is_cut_dimensions(size: str) -> bool:
 
 def is_roll_dimensions(size: str) -> bool:
     units = extract_dimension_units(size)
-    return len(units) == 3 and units[0] == "mm" and units[1] == "m" and units[2] == "mm"
+    return len(units) == 3 and units[0] == "mm" and units[1] in {"m", "mtr", "meter", "meters"} and units[2] == "mm"
 
 
 def extract_dimension_units(size: str) -> List[str]:
     parts = re.split(r"\s*x\s*", size, flags=re.IGNORECASE)
     units: List[str] = []
     for part in parts:
-        match = re.search(r"(mm|cm|m|inch|in)\b", part, flags=re.IGNORECASE)
+        match = re.search(r"(mm|cm|mtr|meters|meter|m|inch|in)\b", part, flags=re.IGNORECASE)
         if match:
             units.append(match.group(1).lower())
     return units
