@@ -219,6 +219,7 @@ def extract_category(row: pd.Series) -> str:
     haystack = build_haystack(row)
     size = normalize_spaces(str(row["Size"]))
     item_name = normalize_spaces(str(row["Item Name"])).lower()
+    brand = str(row.get("Brand", ""))
 
     if is_wash_product(row):
         return format_category("18")
@@ -240,6 +241,8 @@ def extract_category(row: pd.Series) -> str:
         if is_creasing_rule_product(row):
             return format_category("09")
         return format_category("08")
+    if brand == "Polipack":
+        return format_category("06")
     if is_underpacking_product(row):
         if "film" in haystack:
             return format_category("06")
@@ -264,6 +267,7 @@ def extract_category(row: pd.Series) -> str:
 def classify_type_label(row: pd.Series) -> str:
     haystack = build_haystack(row)
     size = normalize_spaces(str(row["Size"]))
+    brand = str(row.get("Brand", ""))
 
     if is_wash_product(row):
         return "Washing Solution"
@@ -287,6 +291,8 @@ def classify_type_label(row: pd.Series) -> str:
         if is_creasing_rule_product(row):
             return "Creasing Rule"
         return "Cutting Rule"
+    if brand == "Polipack":
+        return "Underpacking - Film"
     if is_underpacking_product(row):
         if is_cut_dimensions(size):
             return "Underpacking - Cut Format"
