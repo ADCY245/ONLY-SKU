@@ -146,6 +146,7 @@ def extract_product_name(row: pd.Series) -> str:
         text,
         flags=re.IGNORECASE,
     )
+    text = re.sub(r"\b\d+(?:\.\d+)?\s?mm\s*x\s*\d+(?:\.\d+)?\s*pt\b", " ", text, flags=re.IGNORECASE)
     text = re.sub(r"\b\d+(?:\.\d+)?\s*x\s*\d+(?:\.\d+)?\s*pt\b", " ", text, flags=re.IGNORECASE)
     text = re.sub(r"\b\d+(?:\.\d+)?\s?(?:ml|l|ltr|litre|liter|mm|cm|m|mtr|meter|meters|kg|g|gsm)\b", " ", text, flags=re.IGNORECASE)
     text = re.sub(r"\b\d{4,}\b", " ", text)
@@ -177,6 +178,7 @@ def extract_size(row: pd.Series) -> str:
     )
     patterns = [
         r"\b\d+(?:\.\d+)?\s?(?:mm|cm|m|mtr|meter|meters|inch|in)\s?x\s?\d+(?:\.\d+)?\s?(?:mm|cm|m|mtr|meter|meters|inch|in)(?:\s?x\s?\d+(?:\.\d+)?\s?(?:mm|cm|m|mtr|meter|meters|inch|in))?\b",
+        r"\b\d+(?:\.\d+)?\s?mm\s*x\s*\d+(?:\.\d+)?\s*pt\b",
         r"\b\d+(?:\.\d+)?\s*x\s*\d+(?:\.\d+)?\s*pt\b",
         r"\b\d+(?:\.\d+)?\s?(?:ml|l|ltr|litre|liter)\b",
         r"\b\d+(?:\.\d+)?\s?(?:mm|cm|m|mtr|meter|meters|mic|micron)\b",
@@ -241,7 +243,11 @@ def extract_category(row: pd.Series) -> str:
         if is_creasing_rule_product(row):
             return format_category("09")
         return format_category("08")
+    if brand == "Marks3.Zet":
+        return format_category("05")
     if brand == "Polipack":
+        return format_category("06")
+    if is_anti_marking_product(row):
         return format_category("06")
     if is_underpacking_product(row):
         if "film" in haystack:
@@ -291,7 +297,11 @@ def classify_type_label(row: pd.Series) -> str:
         if is_creasing_rule_product(row):
             return "Creasing Rule"
         return "Cutting Rule"
+    if brand == "Marks3.Zet":
+        return "Underpacking - Paper"
     if brand == "Polipack":
+        return "Underpacking - Film"
+    if is_anti_marking_product(row):
         return "Underpacking - Film"
     if is_underpacking_product(row):
         if is_cut_dimensions(size):
@@ -339,6 +349,8 @@ def is_blanket_product(row: pd.Series) -> bool:
         return False
     if is_rule_product(row):
         return False
+    if is_anti_marking_product(row):
+        return False
     if any(
         keyword in haystack
         for keyword in ("blanket", "uv black", "webline", "topaz", "privilege", "advantage plus", "magnum", "print master", "web master", "mbb")
@@ -370,6 +382,11 @@ def is_rule_product(row: pd.Series) -> bool:
     if brand in {"Sigma", "Star", "Fujikura"} and bool(re.search(r"\b\d+(?:\.\d+)?\s*x\s*\d+(?:\.\d+)?\s*pt\b", size, flags=re.IGNORECASE)):
         return True
     return False
+
+
+def is_anti_marking_product(row: pd.Series) -> bool:
+    haystack = build_haystack(row)
+    return "anti marking" in haystack or "anti-marking" in haystack
 
 
 def is_creasing_rule_product(row: pd.Series) -> bool:
