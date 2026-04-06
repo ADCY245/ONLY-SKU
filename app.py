@@ -15,7 +15,16 @@ RESULT_CACHE = {}
 
 @app.route("/", methods=["GET"])
 def index():
-    return render_template("index.html", preview_rows=None, preview_columns=None, download_token=None)
+    return render_template(
+        "index.html",
+        preview_rows=None,
+        preview_columns=None,
+        download_token=None,
+        page=None,
+        page_size=None,
+        total_rows=None,
+        total_pages=None,
+    )
 
 
 @app.route("/analyze", methods=["POST"])
@@ -48,17 +57,50 @@ def analyze():
     download_name = f"{original_name}_analyzed.xlsx"
 
     download_token = str(uuid.uuid4())
+    columns = list(output_df.columns)
+    rows = output_df.fillna("").to_dict(orient="records")
     RESULT_CACHE[download_token] = {
         "filename": download_name,
         "content": output_stream.getvalue(),
+        "columns": columns,
+        "rows": rows,
     }
 
-    preview_df = output_df.head(100).fillna("")
+    return redirect(url_for("preview", token=download_token, page=1))
+
+
+@app.route("/preview/<token>", methods=["GET"])
+def preview(token):
+    result = RESULT_CACHE.get(token)
+    if not result:
+        flash("That preview is no longer available. Please analyze the file again.")
+        return redirect(url_for("index"))
+
+    try:
+        page = int(request.args.get("page", 1))
+    except (TypeError, ValueError):
+        page = 1
+
+    page_size = 100
+    rows = result.get("rows") or []
+    columns = result.get("columns") or []
+    total_rows = len(rows)
+    total_pages = max(1, (total_rows + page_size - 1) // page_size)
+    page = max(1, min(page, total_pages))
+
+    start = (page - 1) * page_size
+    end = start + page_size
+    preview_rows = rows[start:end]
+
     return render_template(
         "index.html",
-        preview_rows=preview_df.to_dict(orient="records"),
-        preview_columns=list(preview_df.columns),
-        download_token=download_token,
+        preview_rows=preview_rows,
+        preview_columns=columns,
+        download_token=token,
+        page=page,
+        page_size=page_size,
+        total_rows=total_rows,
+        total_pages=total_pages,
     )
 
 

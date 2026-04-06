@@ -166,6 +166,35 @@ button:hover {
     font-weight: 700;
 }
 
+.preview-nav {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.nav-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 16px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.9);
+    color: var(--accent-dark);
+    text-decoration: none;
+    border: 1px solid rgba(31, 41, 51, 0.12);
+    font-weight: 700;
+}
+
+.nav-link:hover {
+    filter: brightness(1.02);
+}
+
+.nav-link.is-disabled {
+    opacity: 0.45;
+    pointer-events: none;
+}
+
 .table-wrap {
     overflow-x: auto;
     border: 1px solid var(--line);

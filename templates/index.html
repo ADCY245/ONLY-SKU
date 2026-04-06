@@ -64,12 +64,28 @@
                 <div class="preview-head">
                     <div>
                         <h2>Preview</h2>
-                        <p>Showing the first {{ preview_rows|length }} analyzed rows on the page.</p>
+                        {% if page and total_pages and total_rows and page_size %}
+                            <p>
+                                Showing rows {{ (page - 1) * page_size + 1 }} - {{ (page - 1) * page_size + preview_rows|length }}
+                                of {{ total_rows }} (page {{ page }} of {{ total_pages }}).
+                            </p>
+                        {% else %}
+                            <p>Preview is available below.</p>
+                        {% endif %}
                     </div>
                     {% if download_token %}
                         <a class="download-link" href="{{ url_for('download', token=download_token) }}">Download Excel</a>
                     {% endif %}
                 </div>
+
+                {% if download_token and page and total_pages and total_pages > 1 %}
+                    <div class="preview-nav">
+                        <a class="nav-link {% if page <= 1 %}is-disabled{% endif %}"
+                           href="{% if page > 1 %}{{ url_for('preview', token=download_token, page=page-1) }}{% else %}#{% endif %}">Previous</a>
+                        <a class="nav-link {% if page >= total_pages %}is-disabled{% endif %}"
+                           href="{% if page < total_pages %}{{ url_for('preview', token=download_token, page=page+1) }}{% else %}#{% endif %}">Next</a>
+                    </div>
+                {% endif %}
                 <div class="table-wrap">
                     <table>
                         <thead>
