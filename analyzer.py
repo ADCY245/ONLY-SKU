@@ -53,6 +53,7 @@ KNOWN_BRANDS = {
     "fujikura": "Fujikura",
     "thompson": "Thompson",
     "hs boyd": "HS Boyd",
+    "h s boyd": "HS Boyd",
     "day": "Day",
     "phoenix": "Phoenix",
     "vulcan": "Vulcan",
@@ -62,8 +63,26 @@ KNOWN_BRANDS = {
 }
 
 NON_BRAND_PREFIXES = {"pl", "d", "exsq"}
-CODES_TO_REMOVE = {"alub", "stlb", "exsq"}
-MACHINE_NAMES_TO_REMOVE = ("kba rapida", "kba rabida")
+CODES_TO_REMOVE = {"alub", "stlb", "exsq", "extn", "sxtn", "exro"}
+MACHINE_NAMES_TO_REMOVE = (
+    "kba rapida",
+    "kba rabida",
+    "komori",
+    "heidelberg",
+    "manugraph",
+    "man roland",
+    "manroland",
+    "shinohara",
+    "hashimoto",
+    "ryobi",
+    "sakurai",
+    "adast",
+    "solna",
+    "roland",
+    "mitsubishi",
+    "exp.sud.a",
+    "exp sud a",
+)
 
 CATEGORY_RULES: Iterable[Tuple[str, Iterable[str]]] = [
     ("23", ("auto wash cloth", "wash cloth")),
@@ -121,8 +140,9 @@ def extract_brand(item_name: str) -> str:
     if not text:
         return "Unspecified"
 
+    lookup_text = re.sub(r"[^a-z0-9]+", " ", text)
     for brand, display_name in KNOWN_BRANDS.items():
-        if re.search(rf"\b{re.escape(brand)}\b", text):
+        if re.search(rf"\b{re.escape(brand)}\b", lookup_text):
             return display_name
     return "Unspecified"
 
@@ -137,6 +157,10 @@ def extract_product_name(row: pd.Series) -> str:
         return extract_thompson_hs_boyd_product_name(item_name, brand)
 
     text = item_name
+    brand_match = find_brand_span(item_name, brand)
+    if brand_match:
+        text = item_name[brand_match[0]:]
+
     text = re.sub(r"^[A-Za-z]{1,3}\s*[|/-]\s*", "", text)
     for machine_name in MACHINE_NAMES_TO_REMOVE:
         text = re.sub(rf"\b{re.escape(machine_name)}\b", " ", text, flags=re.IGNORECASE)
@@ -150,6 +174,7 @@ def extract_product_name(row: pd.Series) -> str:
     text = re.sub(r"\b\d+(?:\.\d+)?\s*x\s*\d+(?:\.\d+)?\s*pt\b", " ", text, flags=re.IGNORECASE)
     text = re.sub(r"\b\d+(?:\.\d+)?\s?(?:ml|l|ltr|litre|liter|mm|cm|m|mtr|meter|meters|kg|g|gsm)\b", " ", text, flags=re.IGNORECASE)
     text = re.sub(r"\b\d{4,}\b", " ", text)
+    text = re.sub(r"\b[A-Z]\s*\d{1,3}\b", " ", text, flags=re.IGNORECASE)
     for code in CODES_TO_REMOVE:
         text = re.sub(rf"\b{re.escape(code)}\b", " ", text, flags=re.IGNORECASE)
     text = re.sub(r"\b(?:cfr|cf)\b", " ", text, flags=re.IGNORECASE)
@@ -172,6 +197,10 @@ def extract_size(row: pd.Series) -> str:
     brand = str(row.get("Brand", ""))
     if brand in {"Thompson", "HS Boyd"}:
         return extract_thompson_hs_boyd_size(item_name)
+    if is_barring_piece_product(row):
+        barring_size_match = re.search(r"\b\d{4,6}\b", item_name)
+        if barring_size_match:
+            return barring_size_match.group(0)
 
     combined = " | ".join(
         [str(row["Item Name"]), str(row["Product Format"]), str(row["Description"])]
@@ -513,3 +542,14 @@ def format_category(category_number: str) -> str:
 
 def normalize_spaces(value: str) -> str:
     return re.sub(r"\s+", " ", str(value)).strip()
+
+
+def find_brand_span(item_name: str, brand: str) -> Tuple[int, int] | None:
+    if not brand or brand == "Unspecified":
+        return None
+
+    escaped_brand = re.escape(brand).replace(r"\ ", r"[\s.]+")
+    match = re.search(rf"\b{escaped_brand}\b", item_name, flags=re.IGNORECASE)
+    if match:
+        return match.span()
+    return None
