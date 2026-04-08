@@ -262,6 +262,8 @@ def extract_category(row: pd.Series) -> str:
         return format_category("21")
     if is_blanket_maintenance_product(row):
         return format_category("22")
+    if is_presspahn_product(row):
+        return format_category("17")
     if is_barring_piece_product(row):
         return format_category("04")
     if is_matrix_product(row):
@@ -314,6 +316,8 @@ def classify_type_label(row: pd.Series) -> str:
         return "Roller Care Product"
     if is_blanket_maintenance_product(row):
         return "Blanket Maintenance Product"
+    if is_presspahn_product(row):
+        return "Presspahn Sheets"
     if is_barring_piece_product(row):
         return "Barring Pieces"
     if is_sponge_product(row):
@@ -431,7 +435,17 @@ def is_perforation_rule_product(row: pd.Series) -> bool:
 
 def is_barring_piece_product(row: pd.Series) -> bool:
     haystack = build_haystack(row)
-    return "b4p" in haystack or "barring piece" in haystack or "barring pieces" in haystack
+    if is_presspahn_product(row):
+        return False
+    return any(
+        keyword in haystack
+        for keyword in ("barring piece", "barring pieces", "alu bar", "alubar")
+    )
+
+
+def is_presspahn_product(row: pd.Series) -> bool:
+    haystack = build_haystack(row)
+    return "presspahn" in haystack
 
 
 def is_sponge_product(row: pd.Series) -> bool:
